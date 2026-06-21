@@ -1,11 +1,17 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, nextTick, onMounted, ref, watch } from 'vue';
 import { useRoute, RouterLink } from 'vue-router';
 import type { Article } from '@shared/types';
 import { pmApi } from '@/api/client';
 import { typeset } from '@/composables/useMathJax';
+import { usePdfExport } from '@/composables/usePdfExport';
 import { useBookmarksStore } from '@/stores/bookmarks';
 import { useArticleCacheStore } from '@/stores/articleCache';
+
+const QuestionsModal = defineAsyncComponent(() => import('@/components/QuestionsModal.vue'));
+const ProblemsModal = defineAsyncComponent(() => import('@/components/ProblemsModal.vue'));
+const LabModal = defineAsyncComponent(() => import('@/components/LabModal.vue'));
+const CommentsModal = defineAsyncComponent(() => import('@/components/CommentsModal.vue'));
 
 const route = useRoute();
 const slug = ref<string>(route.params.slug as string);
@@ -16,10 +22,15 @@ const error = ref<string | null>(null);
 const body = ref<HTMLElement | null>(null);
 const isStale = ref(false);        // shown from cache while network is unreachable
 const renderNonce = ref(0);        // bumped on every article assignment to retrigger MathJax
+const showQuestionsModal = ref(false);
+const showProblemsModal = ref(false);
+const showLabModal = ref(false);
+const showCommentsModal = ref(false);
 let loadToken = 0;                 // discards stale fetches when the user navigates fast
 
 const bookmarks = useBookmarksStore();
 const articleCache = useArticleCacheStore();
+const { exporting, exportArticleToPdf } = usePdfExport();
 const isBookmarked = computed(() =>
   article.value ? bookmarks.has(article.value.slug) : false
 );
@@ -34,6 +45,11 @@ async function toggleBookmark() {
     thumbUrl:    article.value.thumbUrl,
     excerpt:     article.value.excerpt,
   });
+}
+
+async function downloadPdf() {
+  if (!article.value) return;
+  await exportArticleToPdf(article.value, body.value);
 }
 
 async function load() {
@@ -107,17 +123,59 @@ watch(() => route.params.slug, (s) => { slug.value = s as string; load(); });
       </RouterLink>
       <RouterLink v-else to="/" class="text-olive text-sm">← خانه</RouterLink>
 
-      <button
-        v-if="article"
-        type="button"
-        @click="toggleBookmark"
-        :aria-label="isBookmarked ? 'حذف از نشان‌شده‌ها' : 'نشان‌کن'"
-        :title="isBookmarked ? 'حذف از نشان‌شده‌ها' : 'نشان‌کن'"
-        class="text-xl leading-none px-2 py-1 rounded-md"
-        :class="isBookmarked ? 'text-amber-500' : 'text-gray-400'"
-      >
-        {{ isBookmarked ? '★' : '☆' }}
-      </button>
+      <div v-if="article" class="flex gap-1">
+        <button
+          type="button"
+          @click="showQuestionsModal = true"
+          title="سوالات"
+          class="text-lg leading-none px-2 py-1 rounded-md text-olive hover:bg-cream transition"
+        >
+          ❓
+        </button>
+        <button
+          type="button"
+          @click="showProblemsModal = true"
+          title="مسائل"
+          class="text-lg leading-none px-2 py-1 rounded-md text-blue-600 hover:bg-blue-50 transition"
+        >
+          📐
+        </button>
+        <button
+          type="button"
+          @click="showLabModal = true"
+          title="آزمایشگاه"
+          class="text-lg leading-none px-2 py-1 rounded-md text-amber-600 hover:bg-amber-50 transition"
+        >
+          🧪
+        </button>
+        <button
+          type="button"
+          @click="showCommentsModal = true"
+          title="نظرات"
+          class="text-lg leading-none px-2 py-1 rounded-md text-purple-600 hover:bg-purple-50 transition"
+        >
+          💬
+        </button>
+        <button
+          type="button"
+          @click="downloadPdf"
+          :disabled="exporting"
+          title="دانلود PDF"
+          class="text-lg leading-none px-2 py-1 rounded-md text-green-600 hover:bg-green-50 transition disabled:text-gray-400 disabled:cursor-not-allowed"
+        >
+          {{ exporting ? '⏳' : '📥' }}
+        </button>
+        <button
+          type="button"
+          @click="toggleBookmark"
+          :aria-label="isBookmarked ? 'حذف از نشان‌شده‌ها' : 'نشان‌کن'"
+          :title="isBookmarked ? 'حذف از نشان‌شده‌ها' : 'نشان‌کن'"
+          class="text-xl leading-none px-2 py-1 rounded-md"
+          :class="isBookmarked ? 'text-amber-500' : 'text-gray-400'"
+        >
+          {{ isBookmarked ? '★' : '☆' }}
+        </button>
+      </div>
     </div>
 
     <div v-if="loading" class="text-center py-16 text-gray-500">در حال بارگذاری…</div>
@@ -165,6 +223,38 @@ watch(() => route.params.slug, (s) => { slug.value = s as string; load(); });
       </nav>
     </article>
   </main>
+
+  <!-- Questions Modal -->
+  <QuestionsModal
+    v-if="article"
+    :article-slug="article.slug"
+    :open="showQuestionsModal"
+    @close="showQuestionsModal = false"
+  />
+
+  <!-- Problems Modal -->
+  <ProblemsModal
+    v-if="article"
+    :article-slug="article.slug"
+    :open="showProblemsModal"
+    @close="showProblemsModal = false"
+  />
+
+  <!-- Lab Modal -->
+  <LabModal
+    v-if="article"
+    :article-slug="article.slug"
+    :open="showLabModal"
+    @close="showLabModal = false"
+  />
+
+  <!-- Comments Modal -->
+  <CommentsModal
+    v-if="article"
+    :article-slug="article.slug"
+    :open="showCommentsModal"
+    @close="showCommentsModal = false"
+  />
 </template>
 
 <style>

@@ -18,5 +18,14 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
     target: 'es2020',
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'pdf-libs': ['jspdf', 'html2canvas'],
+          'vue-core': ['vue', 'vue-router', 'pinia'],
+        },
+      },
+    },
   },
 });

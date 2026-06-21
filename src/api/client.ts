@@ -2,7 +2,7 @@
  * Typed client for the منِ فیزیکی REST API.
  * Endpoints live under /wp-json/pm/v1/ — implemented by server/api-plugin/.
  */
-import type { Article, ArticleSummary, Book, Chapter } from '@shared/types';
+import type { Article, ArticleSummary, Book, Chapter, Question, QuestionSummary, Problem, ProblemSummary, LabExperiment, LabSummary, Comment } from '@shared/types';
 
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)
                   ?? 'https://physicsme.ir/wp-json/pm/v1';
@@ -54,6 +54,30 @@ export const pmApi = {
   },
   getRecent(limit = 12): Promise<ArticleSummary[]> {
     return request<ArticleSummary[]>(`/recent?limit=${limit}`);
+  },
+  getArticleQuestions(articleSlug: string): Promise<QuestionSummary[]> {
+    return request<QuestionSummary[]>(`/articles/${encodeURIComponent(articleSlug)}/questions`);
+  },
+  getQuestion(id: number): Promise<Question> {
+    return request<Question>(`/questions/${id}`);
+  },
+  getArticleProblems(articleSlug: string): Promise<ProblemSummary[]> {
+    return request<ProblemSummary[]>(`/articles/${encodeURIComponent(articleSlug)}/problems`);
+  },
+  getProblem(id: number): Promise<Problem> {
+    return request<Problem>(`/problems/${id}`);
+  },
+  getArticleLab(articleSlug: string): Promise<LabSummary[]> {
+    return request<LabSummary[]>(`/articles/${encodeURIComponent(articleSlug)}/lab`);
+  },
+  getLab(id: number): Promise<LabExperiment> {
+    return request<LabExperiment>(`/lab/${id}`);
+  },
+  getArticleComments(articleSlug: string): Promise<Comment[]> {
+    return request<Comment[]>(`/articles/${encodeURIComponent(articleSlug)}/comments`);
+  },
+  postComment(articleSlug: string, author: string, email: string, content: string): Promise<{ success: boolean; message: string; id: number }> {
+    return postJson(`/articles/${encodeURIComponent(articleSlug)}/comments`, { author, email, content });
   },
   subscribePush(token: string, platform: 'android' | 'ios' | 'web' = 'android', lang = 'fa'): Promise<{ ok: boolean }> {
     return postJson<{ ok: boolean }>('/push/subscribe', { token, platform, lang });
