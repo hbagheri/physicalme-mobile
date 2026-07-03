@@ -85,6 +85,18 @@ export const pmApi = {
   unsubscribePush(token: string): Promise<{ ok: boolean }> {
     return postJson<{ ok: boolean }>('/push/unsubscribe', { token });
   },
+  getAppVersion(): Promise<AppVersionInfo> {
+    return request<AppVersionInfo>('/app-version');
+  },
 };
+
+export interface AppVersionInfo {
+  latest: string;
+  apk_url: string;
+  play_url: string;
+  changelog: string;
+  min_supported: string;
+  released_at: string;
+}
 
 export { ApiError };

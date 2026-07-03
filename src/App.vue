@@ -4,6 +4,8 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import { useBookmarksStore } from '@/stores/bookmarks';
 import { useArticleCacheStore } from '@/stores/articleCache';
 import { initPushNotifications } from '@/composables/usePushNotifications';
+import { checkAppVersion } from '@/composables/useAppVersion';
+import UpdateBanner from '@/components/UpdateBanner.vue';
 
 const bookmarks = useBookmarksStore();
 const articleCache = useArticleCacheStore();
@@ -12,6 +14,7 @@ onMounted(() => {
   bookmarks.hydrate();
   articleCache.hydrate();
   initPushNotifications(router);
+  checkAppVersion();
 });
 
 const route = useRoute();
@@ -21,6 +24,8 @@ const hideTabBar = computed(() => route.path.startsWith('/article/'));
 <template>
   <div class="min-h-screen flex flex-col pm-app-root">
     <RouterView />
+
+    <UpdateBanner />
 
     <nav v-if="!hideTabBar" class="pm-tabbar">
       <RouterLink to="/" class="pm-tab" :class="{ active: route.path === '/' }">
