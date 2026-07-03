@@ -41,20 +41,25 @@ jobs:
           test -s android/app/release.keystore
 
       - name: Restore google-services.json (optional — enables FCM)
+        id: fcm
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
           if [ -n "$GOOGLE_SERVICES_JSON" ]; then
             printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
             echo "google-services.json installed ($(wc -c < android/app/google-services.json) bytes)"
+            echo "has_fcm=true" >> "$GITHUB_OUTPUT"
           else
-            echo "GOOGLE_SERVICES_JSON secret is not set — building without FCM. The Firebase gradle plugin will skip apply; push notifications will remain disabled at runtime (see usePushNotifications.ts defensive guards)."
+            echo "GOOGLE_SERVICES_JSON secret is not set — building without FCM. The Firebase gradle plugin will skip apply; the Vue Settings toggle will render disabled with a 'not supported in this build' label (see isPushSupportedByBuild in usePushNotifications.ts)."
+            echo "has_fcm=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Install deps
         run: npm ci
 
       - name: Build web
+        env:
+          VITE_HAS_FCM: ${{ steps.fcm.outputs.has_fcm }}
         run: npm run build
 
       - name: Capacitor sync
@@ -69,10 +74,16 @@ jobs:
             V="${GITHUB_REF_NAME#v}"
           fi
           echo "version=$V" >> "$GITHUB_OUTPUT"
-          echo "Building version $V"
+          # versionCode must monotonically increase; derive from run number
+          # (unique per repo). Play Store requires it to grow every upload.
+          echo "version_code=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          echo "Building version $V (code=${{ github.run_number }})"
 
       - name: Build release APK
         working-directory: android
+        env:
+          ORG_GRADLE_PROJECT_pmVersionName: ${{ steps.v.outputs.version }}
+          ORG_GRADLE_PROJECT_pmVersionCode: ${{ steps.v.outputs.version_code }}
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Stage APK artifacts

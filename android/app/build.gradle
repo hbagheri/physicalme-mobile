@@ -7,8 +7,11 @@ android {
         applicationId "ir.physicalme.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // Overridable via -PpmVersionCode=… / -PpmVersionName=… (CI sets these
+        // from the git tag + workflow run number). Local builds default to
+        // versionCode=1 / versionName=0.1.0 so devs don't need to pass args.
+        versionCode Integer.parseInt(project.hasProperty('pmVersionCode') ? project.pmVersionCode : '1')
+        versionName project.hasProperty('pmVersionName') ? project.pmVersionName : '0.1.0'
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

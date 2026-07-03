@@ -6,7 +6,9 @@ import { useArticleCacheStore } from '@/stores/articleCache';
 import {
   pushEnabled, pushStatus,
   enablePushNotifications, disablePushNotifications,
+  isPushSupportedByBuild,
 } from '@/composables/usePushNotifications';
+import { currentVersion } from '@/composables/useAppVersion';
 
 const bookmarks = useBookmarksStore();
 const cache = useArticleCacheStore();
@@ -27,9 +29,11 @@ async function clearCache() {
   }
 }
 
+const pushBuildSupported = isPushSupportedByBuild();
+
 const pushBusy = ref(false);
 async function togglePush() {
-  if (pushBusy.value) return;
+  if (pushBusy.value || !pushBuildSupported) return;
   pushBusy.value = true;
   try {
     if (pushEnabled.value) {
@@ -43,6 +47,7 @@ async function togglePush() {
 }
 
 const pushStatusLabel = (): string => {
+  if (!pushBuildSupported) return 'در این نسخه غیرفعال — نسخه‌ی بعدی پشتیبانی می‌کنه';
   switch (pushStatus.value) {
     case 'requesting':  return 'در حال درخواست…';
     case 'denied':      return 'مجوز رد شد — از تنظیمات دستگاه فعال کن';
@@ -52,8 +57,6 @@ const pushStatusLabel = (): string => {
     default:            return pushEnabled.value ? 'فعال' : 'برای مقاله‌های جدید notif بگیر';
   }
 };
-
-const APP_VERSION = '0.1.0';
 </script>
 
 <template>
@@ -68,9 +71,9 @@ const APP_VERSION = '0.1.0';
         <button
           type="button"
           @click="togglePush"
-          :disabled="pushBusy || pushStatus === 'unsupported'"
+          :disabled="pushBusy || pushStatus === 'unsupported' || !pushBuildSupported"
           class="w-full px-4 py-3 flex items-center justify-between text-right"
-          :class="pushStatus === 'unsupported' ? 'cursor-not-allowed opacity-60' : ''"
+          :class="(!pushBuildSupported || pushStatus === 'unsupported') ? 'cursor-not-allowed opacity-60' : ''"
         >
           <div>
             <div class="font-bold text-base">اعلان مقاله‌های جدید</div>
@@ -140,7 +143,7 @@ const APP_VERSION = '0.1.0';
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 divide-y divide-gray-100">
         <div class="px-4 py-3 flex items-center justify-between">
           <span class="text-sm text-gray-600">نسخه</span>
-          <span class="text-sm font-mono text-gray-500">{{ APP_VERSION }}</span>
+          <span class="text-sm font-mono text-gray-500">{{ currentVersion || '—' }}</span>
         </div>
         <a
           href="https://physicsme.ir"

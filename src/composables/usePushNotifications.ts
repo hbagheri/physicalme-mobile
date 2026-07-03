@@ -14,12 +14,21 @@ export const pushEnabled = ref(false);
 export const pushToken   = ref<string | null>(null);
 export const pushStatus  = ref<PushStatus>('idle');
 
+// Build-time gate — the workflow sets VITE_HAS_FCM=true only when
+// google-services.json was restored before the vite build. Without FCM,
+// PushNotificationsPlugin.register() throws a synchronous
+// java.lang.IllegalStateException on the CapacitorPlugins handler thread —
+// which JS try/catch cannot intercept (the throw happens before the bridge
+// creates a Promise resolver). The only safe way to prevent the crash is
+// to never call register() when FCM isn't compiled in.
+const HAS_FCM = import.meta.env.VITE_HAS_FCM === 'true';
+
+export function isPushSupportedByBuild(): boolean {
+  return HAS_FCM;
+}
+
 let initialized = false;
 
-// FCM init throws synchronously in the native layer if google-services.json is
-// missing or malformed. Any call into PushNotifications must be wrapped so a
-// failed init cannot crash the app or leave `pm.push.enabled=true` on disk,
-// which would re-trigger the crash on every launch.
 async function forceDisableOnFailure(reason: string, err: unknown): Promise<void> {
   console.error(`[push] ${reason}`, err);
   pushStatus.value = 'error';
@@ -33,8 +42,6 @@ async function forceDisableOnFailure(reason: string, err: unknown): Promise<void
 
 /**
  * Wire FCM listeners and restore prior opt-in. Called once from App.vue.
- * Listeners must be attached on every cold start — including taps that
- * launched the app from a killed state.
  */
 export async function initPushNotifications(router: Router): Promise<void> {
   if (initialized) return;
@@ -42,6 +49,18 @@ export async function initPushNotifications(router: Router): Promise<void> {
 
   if (!Capacitor.isNativePlatform()) {
     pushStatus.value = 'unsupported';
+    return;
+  }
+
+  if (!HAS_FCM) {
+    // Build without google-services.json — any PushNotifications call risks
+    // a native crash. Report unsupported and stop; the Settings toggle will
+    // render disabled.
+    pushStatus.value = 'unsupported';
+    // Also clear any legacy enabled=true from a prior build that had FCM,
+    // so an update pushed to a device without a fresh FCM setup can't
+    // trigger the old crash path on cold start.
+    await Preferences.set({ key: ENABLED_KEY, value: 'false' });
     return;
   }
 
@@ -73,16 +92,13 @@ export async function initPushNotifications(router: Router): Promise<void> {
       if (slug) router.push(`/article/${slug}`);
     });
   } catch (e) {
-    await forceDisableOnFailure('listener attach failed — FCM not initialized', e);
+    await forceDisableOnFailure('listener attach failed', e);
     return;
   }
 
   const stored = await Preferences.get({ key: ENABLED_KEY });
   pushEnabled.value = stored.value === 'true';
   if (pushEnabled.value) {
-    // Re-register on every launch so token refreshes are caught.
-    // If it fails, forceDisableOnFailure clears the enabled flag so we
-    // don't retry (and crash) forever.
     await registerForPush();
   }
 }
@@ -101,13 +117,13 @@ async function registerForPush(): Promise<boolean> {
     await PushNotifications.register();
     return true;
   } catch (e) {
-    await forceDisableOnFailure('register() threw — likely missing google-services.json', e);
+    await forceDisableOnFailure('register() threw despite HAS_FCM=true', e);
     return false;
   }
 }
 
 export async function enablePushNotifications(): Promise<boolean> {
-  if (!Capacitor.isNativePlatform()) return false;
+  if (!Capacitor.isNativePlatform() || !HAS_FCM) return false;
   const ok = await registerForPush();
   if (ok) {
     pushEnabled.value = true;
