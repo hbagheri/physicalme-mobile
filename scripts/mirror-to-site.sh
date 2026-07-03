@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-REPO="${REPO:-hbagheri/physicalme-mobile}"
+REPO="${REPO:-hbagheri/physicsme-mobile}"
 SITE_ROOT="${SITE_ROOT:-/home/hassan/projects/personal/localWebHosting/wordpress/physicalme}"
 DOWNLOADS_DIR="${SITE_ROOT}/downloads"
 DB_CONTAINER="${DB_CONTAINER:-wp-db}"

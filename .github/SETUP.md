@@ -9,7 +9,7 @@ The signing keystore lives outside git (gitignored). CI needs a base64 copy uplo
 ```bash
 # From your local machine, with the keystore in the current directory:
 gh secret set ANDROID_KEYSTORE_BASE64 \
-  --repo hbagheri/physicalme-mobile \
+  --repo hbagheri/physicsme-mobile \
   --body "$(base64 -w0 android/app/release.keystore)"
 ```
 
@@ -27,10 +27,10 @@ git push origin v0.1.1
 ```
 
 That fires the workflow. Watch it here:
-https://github.com/hbagheri/physicalme-mobile/actions
+https://github.com/hbagheri/physicsme-mobile/actions
 
 On success, the APK is attached to the GitHub Release page:
-https://github.com/hbagheri/physicalme-mobile/releases
+https://github.com/hbagheri/physicsme-mobile/releases
 
 ## 3. Mirror to physicsme.ir/downloads/
 
