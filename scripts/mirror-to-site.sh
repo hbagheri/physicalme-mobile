@@ -42,22 +42,34 @@ echo "→ downloading ${TAG} assets"
 gh release download "${TAG}" --repo "${REPO}" --pattern 'physicalme-*.apk' --dir "${DOWNLOADS_DIR}" --clobber
 
 APK_URL="https://physicsme.ir/downloads/physicalme-latest.apk"
+WP_CONTAINER="${WP_CONTAINER:-wp-physicalme}"
 
 echo "→ updating pm_app_version option (version=${VERSION})"
 
-# Serialize the option as PHP array via a small heredoc; MariaDB stores as text.
-# WP will unserialize on read.
-PHP_SERIALIZED=$(cat <<EOF
-a:6:{s:6:"latest";s:${#VERSION}:"${VERSION}";s:7:"apk_url";s:${#APK_URL}:"${APK_URL}";s:8:"play_url";s:64:"https://play.google.com/store/apps/details?id=ir.physicalme.app";s:9:"changelog";s:${#CHANGELOG}:"${CHANGELOG}";s:13:"min_supported";s:5:"0.1.0";s:11:"released_at";s:${#RELEASED_AT}:"${RELEASED_AT}";}
-EOF
-)
-
-docker exec -i "${DB_CONTAINER}" mariadb -u"${DB_USER}" -p"${DB_PASS}" "${DB_NAME}" <<SQL
-INSERT INTO wp_options (option_name, option_value, autoload)
-VALUES ('pm_app_version', '${PHP_SERIALIZED//\'/\'\'}', 'yes')
-ON DUPLICATE KEY UPDATE option_value = VALUES(option_value);
-DELETE FROM wp_options WHERE option_name LIKE '_transient%pm_api%';
-SQL
+# Delegate the update to WP itself so it handles serialization, byte-length
+# accounting for multi-byte strings (Persian changelog), autoload, and cache
+# invalidation correctly. Hand-rolled PHP-serialized strings had off-by-one
+# bugs on URL/changelog lengths.
+docker exec -e PM_VERSION="${VERSION}" \
+            -e PM_APK_URL="${APK_URL}" \
+            -e PM_CHANGELOG="${CHANGELOG}" \
+            -e PM_RELEASED_AT="${RELEASED_AT}" \
+            "${WP_CONTAINER}" php -r '
+define("WP_USE_THEMES", false);
+$_SERVER["HTTP_HOST"] = "physicsme.ir";
+$_SERVER["REQUEST_URI"] = "/";
+require "/var/www/html/wp-load.php";
+$ok = update_option("pm_app_version", [
+    "latest"        => getenv("PM_VERSION"),
+    "apk_url"       => getenv("PM_APK_URL"),
+    "play_url"      => "https://play.google.com/store/apps/details?id=ir.physicalme.app",
+    "changelog"     => getenv("PM_CHANGELOG"),
+    "min_supported" => "0.1.0",
+    "released_at"   => getenv("PM_RELEASED_AT"),
+], true);
+delete_transient("pm_api_books_v1");
+echo $ok ? "wp update_option OK\n" : "wp update_option no-op (same value)\n";
+' 2>&1 | tail -5
 
 echo "✓ mirrored ${TAG} → ${DOWNLOADS_DIR}"
 echo "✓ pm_app_version bumped to ${VERSION}"
