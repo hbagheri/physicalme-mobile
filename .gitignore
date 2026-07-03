@@ -1,1 +1,45 @@
+# Signing keys — never commit
 *.keystore
+*.jks
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+dist-ssr/
+*.local
+
+# Capacitor / Android
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/app/release/
+android/app/debug/
+android/app/google-services.json
+
+# iOS
+ios/App/App/public/
+ios/App/build/
+ios/App/Pods/
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# APK releases (uploaded to physicsme.ir separately)
+releases/
+*.apk
+*.aab
